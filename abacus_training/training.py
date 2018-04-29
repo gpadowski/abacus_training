@@ -3,11 +3,11 @@ import datetime
 from enum import Enum
 from functools import partial
 import numpy as np
-import os 
+import os
 import pygame
 import sys
 
-from abacus_as import (
+from add_subtract import (
     display_abacus_add_subtract_problem,
     display_arabic_add_subtract_problem,
     format_operand,
@@ -48,6 +48,7 @@ class NumberStyle(Enum):
     ABACUS = 1
     ARABIC = 2
     VERBAL = 3
+
 
 def not_implemented():
     raise NotImplementedError()
@@ -97,11 +98,8 @@ def give_problem(
             'Lucida Console', font_size
         )
     column_width = height_to_width(font_size)
-
     clock = pygame.time.Clock()
-
     entered_digits = []
-    correct_response = sum(operands)
 
     # wait for start
     while True:
@@ -119,20 +117,17 @@ def give_problem(
             if event.type == pygame.KEYDOWN:
                 if event.key == pygame.K_q:
                     return True, None
-                start_time = pygame.time.get_ticks() 
+                start_time = pygame.time.get_ticks()
                 exit_while = True
         if exit_while:
             break
 
         pygame.display.flip()
         clock.tick(frames_per_second)
-        
-    # present problem and collect response
 
+    # present problem and collect response
     read = True
-    
     while True:
-    # verbal reading of the problem must occur outside of this loop
         if read and number_style == NumberStyle.VERBAL:
             read_problem(
                 operands,
@@ -140,7 +135,7 @@ def give_problem(
                 language=language
             )
             read = False
-            
+
         screen.fill(BLACK)
         if number_style == NumberStyle.ABACUS:
             x_response, y_response = display_abacus_add_subtract_problem(
@@ -162,7 +157,11 @@ def give_problem(
                 separator_bead_color=separator_bead_color,
             )
         elif number_style == NumberStyle.ARABIC:
-            x_response, y_response, width = display_arabic_add_subtract_problem(
+            (
+                x_response,
+                y_response,
+                width
+            ) = display_arabic_add_subtract_problem(
                 screen,
                 bead_color,
                 operands,
@@ -217,9 +216,10 @@ def give_problem(
                     return True, None
                 else:
                     pass
-                    
+
         pygame.display.flip()
         clock.tick(frames_per_second)
+
 
 def add_subtract(
         number_style=NumberStyle.ARABIC,
@@ -240,6 +240,7 @@ def add_subtract(
             if end:
                 break
 
+
 def abacus_reading_problem(
         result_file,
         display_digits,
@@ -250,7 +251,7 @@ def abacus_reading_problem(
     n_digits = len(display_digits)
     column_width = height_to_width(font.get_height())
     clock = pygame.time.Clock()
-    
+
     x_display = .5 * (
         SCREEN_WIDTH - n_digits * column_width
     )
@@ -380,7 +381,7 @@ if __name__ == '__main__':
     foreground_color = GREEN
     menu_font = pygame.font.SysFont('Lucida Console', 40)
     frames_per_second = 20
-    
+
     menu_args = [
         screen,
         background_color,
@@ -415,8 +416,7 @@ if __name__ == '__main__':
          MenuChoice('(5) Japanese', NUMBER_TO_KEYS[5], 'ja'),
          MenuChoice('(B) Back', [pygame.K_b], BACK),
          MenuChoice('(Q) Quit', [pygame.K_q],
-                    partial(sys.exit, 0)),
-        ],
+                    partial(sys.exit, 0))],
     )
 
     def add_subtract_speech():
@@ -430,7 +430,7 @@ if __name__ == '__main__':
             number_style=NumberStyle.VERBAL,
             language=result()
         )
-    
+
     addition_subtraction_menu = Menu(
         'Operand Presentation Style',
         [
@@ -465,39 +465,41 @@ if __name__ == '__main__':
     )
     main_menu = Menu(
         'Main Menu',
-        [MenuChoice(
-            '(1) Addition and Subtraction',
-            NUMBER_TO_KEYS[1],
-            partial(
-                addition_subtraction_menu.present_loop,
-                *menu_args,
-                exit_condition=lambda fn: fn is BACK
+        [
+            MenuChoice(
+                '(1) Addition and Subtraction',
+                NUMBER_TO_KEYS[1],
+                partial(
+                    addition_subtraction_menu.present_loop,
+                    *menu_args,
+                    exit_condition=lambda fn: fn is BACK
+                )
+            ),
+            MenuChoice(
+                '(2) Multiplication',
+                NUMBER_TO_KEYS[2],
+                not_implemented,
+            ),
+            MenuChoice(
+                '(3) Division',
+                NUMBER_TO_KEYS[3],
+                not_implemented,
+            ),
+            MenuChoice(
+                '(4) Abacus Reading',
+                NUMBER_TO_KEYS[4],
+                partial(
+                    abacus_reading_menu.present_loop,
+                    *menu_args,
+                    exit_condition=lambda fn: fn is BACK
+                )
+            ),
+            MenuChoice(
+                '(Q) Quit',
+                [pygame.K_q],
+                partial(sys.exit, 0)
             )
-        ),
-        MenuChoice(
-            '(2) Multiplication',
-            NUMBER_TO_KEYS[2],
-            not_implemented,
-        ),
-        MenuChoice(
-            '(3) Division',
-            NUMBER_TO_KEYS[3],
-            not_implemented,
-        ),
-        MenuChoice(
-            '(4) Abacus Reading',
-            NUMBER_TO_KEYS[4],
-            partial(
-                abacus_reading_menu.present_loop,
-                *menu_args,
-                exit_condition=lambda fn: fn is BACK
-            )
-        ),
-        MenuChoice(
-            '(Q) Quit',
-            [pygame.K_q],
-            partial(sys.exit, 0)
-        )],
+        ],
     )
 
     main_menu.present_loop(

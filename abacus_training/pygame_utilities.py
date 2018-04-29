@@ -44,6 +44,7 @@ def format_number(num, columns=10):
     format_string = '\{: >+{},\}'.format(columns)
     return format_string.format(num)
 
+
 def display_centered_text(
         screen,
         text,
@@ -54,7 +55,7 @@ def display_centered_text(
     surfaces = []
     width = 0.
     height = 0.
-    
+
     for line in lines:
         surface = font.render(line, True, color)
         surfaces.append(surface)
@@ -68,7 +69,7 @@ def display_centered_text(
             screen.get_height()
             - height
         ) + line_n * (height / len(lines))
-        
+
         screen.blit(
             surface,
             (text_x, text_y)
@@ -80,7 +81,7 @@ def display_centered_text(
     )
 
     return text_x, text_y, width
-        
+
 
 class MenuChoice(object):
     def __init__(
@@ -142,7 +143,7 @@ class Menu(object):
                 break
 
             return result
-            
+
     def present(
             self,
             screen,
@@ -156,7 +157,7 @@ class Menu(object):
         associated with any menu item.
         """
         clock = pygame.time.Clock()
-        
+
         menu_choice = None
         while True:
             screen.fill(background_color)

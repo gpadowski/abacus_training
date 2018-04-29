@@ -1,35 +1,103 @@
 import datetime
+import glob
 from google_speech import Speech
 import numpy as np
+import pandas as pd
+from pygame.draw import polygon
+from pygame.font import SysFont
+from pygame_utilities import display_centered_text
 import time
-import operation as op
 
-from utils import (
-    display_as_problem,
-    get_dataset_dates,
-    read_as_data,
-    write_problem_result,
-)
 from bead import (
     digitize,
     draw_columns,
     height_to_width,
 )
-from pygame.draw import (
-    polygon,
-)
-from pygame_utilities import (
-    display_centered_text,
-)
+import operation as op
+
+
+AS_SUFFIX = '_abacus_as.dat'
+DATE_FORMAT = '%Y_%m_%d'
+
+
+def get_data_filenames(suffix=AS_SUFFIX):
+    return glob.glob('*' + suffix)
+
+
+def date_to_filename(
+        dt,
+        suffix=AS_SUFFIX
+):
+    return dt.strftime(DATE_FORMAT) + suffix
+
 
 def storage_filename():
-    return datetime.date.today().strftime('%Y_%m_%d_abacus_as.dat')
+    return date_to_filename(datetime.date.today())
+
+
+# Get listing of appropriate data files by date
+def get_dataset_dates(suffix=AS_SUFFIX):
+    dates = []
+    fns = get_data_filenames(suffix=suffix)
+
+    for fn in fns:
+        dt = datetime.datetime.strptime(
+            fn.split(suffix)[0], DATE_FORMAT
+        ).date()
+        dates.append(dt)
+    dates.sort()
+
+    return dates
+
+
+def read_as_data(date):
+    return pd.read_csv(
+        date_to_filename(date, suffix=AS_SUFFIX),
+        delimiter=',',
+        header=None,
+        names=[
+            'problem',
+            'response_time',
+            'response',
+            'correct',
+            'time_of_day',
+            'presentation_method',
+        ]
+    )
+
+
+def write_problem_result(
+        stream,
+        operands,
+        response,
+        response_time,
+        is_correct,
+        number_style,
+):
+    # n1, n2, time, answer, correct?
+    stream.write(
+        '{},{:.2f},{},{},{},{}\n'.format(
+            ';'.join(map(str, operands)),
+            response_time,
+            response,
+            is_correct,
+            datetime.datetime.now().strftime('%Y-%m-%d-%H:%M:%S'),
+            number_style.name,
+        )
+    )
+
 
 def generate_problems(
         addition_prob=.5,
         num_digits=6,
         num_operands=5,
+        new_problem_prob=.5,
+        previous_incorrect_prob=.4,
+        previous_slow_prob=.1,
 ):
+    if new_problem_prob + previous_incorrect_prob + previous_slow_prob != 1.:
+        raise ValueError('Problem selection probabilities must sum to 1.')
+
     dates = get_dataset_dates()
 
     add_digit_pair_prob = op.digit_pair_prob(
@@ -40,11 +108,13 @@ def generate_problems(
         np.ones(op.OPERATION_COUNT) / op.OPERATION_COUNT,
         op.sub_op_index_to_digit_pairs
     )
-    
+
     while True:
-        # decide whether to generate a new problem or give a problem where the answer
-        # was previously incorrect or the response was slow
-        if np.random.random() < .5 or not dates:
+        rand = np.random.random()
+
+        # decide whether to generate a new problem or give a problem where
+        # the answer was previously incorrect or the response was slow
+        if not dates or 0 <= rand < new_problem_prob:
             operands = op.generate_mixed_problem(
                 add_digit_pair_prob,
                 addition_prob,
@@ -55,9 +125,13 @@ def generate_problems(
         else:
             date = np.random.choice(dates)
             df = read_as_data(date)
-            # choose a problem where the response was wrong, if possible
-            incorrect_df = df[df.correct==False]
-            if np.random.random() < .85 and incorrect_df.shape[0] > 0:
+            incorrect_df = df[df.correct == False]  # noqa: E712
+
+            # choose a problem where the response was wrong, if possible1
+            if (
+                    incorrect_df.shape[0] > 0
+                    and 0. <= rand - new_problem_prob < previous_incorrect_prob
+            ):
                 row_n = np.random.randint(low=0, high=incorrect_df.shape[0])
                 operands = map(
                     int,
@@ -79,12 +153,13 @@ def generate_problems(
                     max_time_series.iloc[row_n],
                     date
                 ))
-
         yield list(operands)
+
 
 def format_operand(operand):
     return '{: >+10,}'.format(operand)
-        
+
+
 def display_arabic_add_subtract_problem(
         screen,
         color,
@@ -107,7 +182,8 @@ def display_arabic_add_subtract_problem(
     )
 
     return response_x, response_y, width
-    
+
+
 def display_abacus_add_subtract_problem(
         screen,
         color,
@@ -119,7 +195,7 @@ def display_abacus_add_subtract_problem(
         font=None,
 ):
     if font is None:
-        font = pygame.font.SysFont('Lucida Console', height)
+        font = SysFont('Lucida Console', height)
     x_ul, y_ul = upper_left
     max_digits = max(
         len(digitize(operand))
@@ -127,14 +203,14 @@ def display_abacus_add_subtract_problem(
     )
     column_width = height_to_width(height)
     max_sign_width = 0.
-    
+
     for row_n, operand in enumerate(operands):
         x_row = x_ul
         y_row = y_ul + row_n * height * line_spacing
 
         digits = digitize(abs(operand))
         n_digits = len(digits)
-        
+
         sign = '+' if operand >= 0 else '-'
         sign_surface = font.render(sign, True, color)
         sign_width = sign_surface.get_width()
@@ -149,7 +225,12 @@ def display_abacus_add_subtract_problem(
         draw_columns(
             screen,
             color,
-            (x_row + sign_width + (max_digits - n_digits) * column_width, y_row), 
+            (
+                x_row
+                + sign_width
+                + (max_digits - n_digits) * column_width,
+                y_row
+            ),
             height,
             digits,
             separator_bead_color=separator_bead_color,
@@ -186,12 +267,14 @@ def display_abacus_add_subtract_problem(
     # coordinates of where to draw the rightmost digit
     # of the response
     return (
-        (x_ul
-         + sign_width
-         + max_digits * column_width
+        (
+            x_ul
+            + sign_width
+            + max_digits * column_width
         ),
         y_ul + row_n * height * line_spacing
     )
+
 
 def read_problem(
         operands,

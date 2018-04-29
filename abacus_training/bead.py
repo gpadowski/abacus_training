@@ -5,10 +5,6 @@ from pygame.gfxdraw import (
     aapolygon,
     filled_polygon,
 )
-from pygame_utilities import (
-    display_centered_text,
-    format_number,
-)
 
 BEAD_HEIGHT = .75
 BEAD_FLAT = BEAD_HEIGHT * .5 / 1.6
@@ -22,6 +18,7 @@ COLUMN_RECKONING_BAR_HEIGHT = .2
 COLUMN_ROD_DIAMETER = .67 * BEAD_FLAT
 
 PROBLEM_LINE_HEIGHT = .05
+
 
 def draw_bead(
         screen,
@@ -48,6 +45,7 @@ def draw_bead(
     aapolygon(screen, points, color)
     filled_polygon(screen, points, color)
 
+
 def draw_column(
         screen,
         color,
@@ -60,11 +58,9 @@ def draw_column(
     scale = height / COLUMN_HEIGHT
     on_center_spacing = scale * COLUMN_WIDTH
     bead_height = scale * BEAD_HEIGHT
-    
+
     x_ul, y_ul = upper_left
     x_c = x_ul + .5 * on_center_spacing
-    y_top = y_ul
-    y_bottom = y_ul + height
 
     fives, ones = divmod(value, 5)
 
@@ -75,8 +71,10 @@ def draw_column(
         [
             (x_c - .5 * scale * COLUMN_ROD_DIAMETER, y_ul),
             (x_c + .5 * scale * COLUMN_ROD_DIAMETER, y_ul),
-            (x_c + .5 * scale * COLUMN_ROD_DIAMETER, y_ul + scale * COLUMN_HEIGHT),
-            (x_c - .5 * scale * COLUMN_ROD_DIAMETER, y_ul + scale * COLUMN_HEIGHT)
+            (x_c + .5 * scale * COLUMN_ROD_DIAMETER,
+             y_ul + scale * COLUMN_HEIGHT),
+            (x_c - .5 * scale * COLUMN_ROD_DIAMETER,
+             y_ul + scale * COLUMN_HEIGHT)
         ]
     )
 
@@ -85,13 +83,19 @@ def draw_column(
         screen,
         color,
         [
-            (x_c - .5 * on_center_spacing, y_ul + scale * COLUMN_HEAVEN_HEIGHT),
-            (x_c - .5 * on_center_spacing, y_ul + scale * (COLUMN_HEAVEN_HEIGHT + COLUMN_RECKONING_BAR_HEIGHT)),
-            (x_c + .5 * on_center_spacing, y_ul + scale * (COLUMN_HEAVEN_HEIGHT + COLUMN_RECKONING_BAR_HEIGHT)),
-            (x_c + .5 * on_center_spacing, y_ul + scale * COLUMN_HEAVEN_HEIGHT)
+            (x_c - .5 * on_center_spacing,
+             y_ul + scale * COLUMN_HEAVEN_HEIGHT),
+            (x_c - .5 * on_center_spacing,
+             y_ul + scale * (COLUMN_HEAVEN_HEIGHT
+                             + COLUMN_RECKONING_BAR_HEIGHT)),
+            (x_c + .5 * on_center_spacing,
+             y_ul + scale * (COLUMN_HEAVEN_HEIGHT
+                             + COLUMN_RECKONING_BAR_HEIGHT)),
+            (x_c + .5 * on_center_spacing,
+             y_ul + scale * COLUMN_HEAVEN_HEIGHT)
         ]
     )
-    
+
     # draw heaven bead
     if fives == 0:
         # touching top of abacus
@@ -148,21 +152,24 @@ def digitize(integer):
         remaining_value, digit = divmod(remaining_value, 10)
         digits.append(digit)
     digits.reverse()
-    
+
     return digits
+
 
 def numerify(digits):
     number = 0
     multiplier = 1
-    
+
     for digit in reversed(digits):
         number += multiplier * digit
         multiplier *= 10
 
     return number
 
+
 def height_to_width(height):
     return COLUMN_WIDTH * (height / COLUMN_HEIGHT)
+
 
 def draw_columns(
         screen,
@@ -178,7 +185,7 @@ def draw_columns(
     column_width = height_to_width(height)
     x_ul, y_ul = upper_left
     n_digits = len(digits)
-    
+
     for digit_n, digit in enumerate(digits):
         is_separator_column = (
             (n_digits - 1 - digit_n) % 3 == 0
@@ -193,11 +200,3 @@ def draw_columns(
             separator_bead_color=separator_bead_color,
             is_separator_column=is_separator_column,
         )
-
-_all_ = [
-    digitize,
-    draw_bead,
-    draw_column,
-    draw_columns,
-]
-
