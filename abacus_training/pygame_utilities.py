@@ -40,8 +40,11 @@ NUMBER_KEYS = {
 ENTER_KEYS = {pygame.K_KP_ENTER, pygame.K_RETURN}
 
 
-def format_number(num, columns=10):
-    format_string = '\{: >+{},\}'.format(columns)
+def format_number(num, columns=10, sign=True):
+    format_string = '{: >'
+    if sign:
+        format_string += '+'
+    format_string += str(columns) + ',}'
     return format_string.format(num)
 
 

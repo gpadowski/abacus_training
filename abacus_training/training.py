@@ -25,6 +25,7 @@ from bead import (
 from pygame_utilities import (
     display_centered_text,
     ENTER_KEYS,
+    format_number,
     Menu,
     MenuChoice,
     NUMBER_TO_KEYS,
@@ -52,10 +53,6 @@ class NumberStyle(Enum):
 
 def not_implemented():
     raise NotImplementedError()
-
-
-def format_number(num):
-    return '{: >+,}'.format(num)
 
 
 def check_response(
@@ -317,8 +314,191 @@ def abacus_reading_problem(
     return is_correct, numerify(entered_digits)
 
 
+def multiplication_and_division_loop(
+        screen,
+        background_color,
+        foreground_color,
+        fps=20,
+        font=None,
+        n_digits=3,
+        operation='mult'
+):
+    filename = '{:%Y_%m_%d}_{}.dat'.format(
+        datetime.datetime.today(),
+        operation,
+    )
+    response_time = None
+    clock = pygame.time.Clock()
+
+    font_size = 100
+    font = font or pygame.font.SysFont('Lucida Console', font_size)
+
+    with open(filename, 'a') as stream:
+        while True:
+            # See if user wants to do another
+            another = False
+            while True:
+                screen.fill(background_color)
+                if response_time:
+                    display_centered_text(
+                        screen,
+                        '{:.2f}'.format(response_time),
+                        foreground_color,
+                        font
+                    )
+
+                pygame.display.flip()
+                clock.tick(fps)
+
+                for event in pygame.event.get():
+                    if event.type == pygame.KEYDOWN:
+                        if event.key == pygame.K_q:
+                            return
+                        else:
+                            another = True
+
+                if another:
+                    break
+
+            o1, o2 = np.random.randint(low=1, high=10**n_digits, size=2)
+            o3 = o1 * o2
+
+            while True:
+                end, response_time = give_multiplication_or_division_problem(
+                    o1,
+                    o2,
+                    o3,
+                    screen,
+                    stream,
+                    background_color,
+                    foreground_color,
+                    fps=fps,
+                    font=font,
+                    operation=operation,
+                )
+
+                if end:
+                    break
+
+
+def write_multiplication_or_division_result(
+        stream,
+        o1,
+        o2,
+        o3,
+        response,
+        response_time,
+        is_correct,
+        operation='mult',
+):
+    if operation == 'mult':
+        operands = '{};{}'.format(o1, o2)
+    else:
+        operands = '{};{}'.format(o3, o2)
+
+    stream.write(
+        '{},{:.2f},{},{},{}\n'.format(
+            operands,
+            response_time,
+            response,
+            is_correct,
+            datetime.datetime.now().strftime('%Y-%m-%d-%H:%M:%S'),
+        )
+    )
+
+
+def give_multiplication_or_division_problem(
+        o1,
+        o2,
+        o3,
+        screen,
+        result_stream,
+        background_color,
+        foregrount_color,
+        fps=20,
+        font=None,
+        font_size=100,
+        operation='mult',
+):
+    if font is None:
+        font = pygame.font.SysFont(
+            'Lucida Console',
+            font_size
+        )
+
+    n_digits = max(len(digitize(o1)), len(digitize(o2)))
+    clock = pygame.time.Clock()
+
+    start_time = pygame.time.get_ticks()
+
+    entered_digits = []
+    response = None
+    response_time = None
+    response_entered = False
+    response_correct = False
+
+    while True:
+        screen.fill(background_color)
+        if operation == 'mult':
+            columns = 2 * n_digits + max(2 * n_digits - 1, 0) // 3
+            display_centered_text(
+                screen,
+                '  {}\nx {}\n{}\n  {}'.format(
+                    format_number(o1, columns=columns, sign=False),
+                    format_number(o2, columns=columns, sign=False),
+                    '-' * (columns + 2),
+                    format_number(numerify(entered_digits), columns=columns, sign=False),
+                ),
+                foreground_color,
+                font,
+            )
+        else:
+            display_centered_text(
+                screen,
+                '{} / {}\n= {} '.format(
+                    o3,
+                    o2,
+                    numerify(entered_digits)
+                ),
+                foreground_color,
+                font,
+            )
+        pygame.display.flip()
+
+        for event in pygame.event.get():
+            if event.type == pygame.KEYDOWN:
+                collect_digits(entered_digits, event.key)
+                if event.key in ENTER_KEYS:
+                    response_time = (pygame.time.get_ticks() - start_time) / 1000.
+                    response_entered = True
+                    response = numerify(entered_digits)
+
+                    if operation == 'mult':
+                        response_correct = (response == o3)
+                    else:
+                        response_correct = (response == o1)
+
+        if response_entered:
+            write_multiplication_or_division_result(
+                result_stream,
+                o1,
+                o2,
+                o3,
+                response,
+                response_time,
+                response_correct,
+                operation=operation,
+            )
+            if response_correct:
+                return response_correct, response_time
+            else:
+                return response_correct, None
+
+        clock.tick(fps)
+
+
 def abacus_reading(
-        n_digits=5
+    n_digits=5
 ):
     font = pygame.font.SysFont('Lucida Console', 100)
     flash_seconds = 1.
@@ -478,12 +658,26 @@ if __name__ == '__main__':
             MenuChoice(
                 '(2) Multiplication',
                 NUMBER_TO_KEYS[2],
-                not_implemented,
+                partial(
+                    multiplication_and_division_loop,
+                    screen,
+                    background_color,
+                    foreground_color,
+                    fps=frames_per_second,
+                    operation='mult',
+                ),
             ),
             MenuChoice(
                 '(3) Division',
                 NUMBER_TO_KEYS[3],
-                not_implemented,
+                partial(
+                    multiplication_and_division_loop,
+                    screen,
+                    background_color,
+                    foreground_color,
+                    fps=frames_per_second,
+                    operation='div',
+                ),
             ),
             MenuChoice(
                 '(4) Abacus Reading',
